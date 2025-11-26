@@ -1,10 +1,8 @@
-# 💳 Credit Default Prediction (Risk Scoring)
+# 💳 Credit Risk Scoring Model (Default Prediction)
 
 ## 📘 Overview
-This project builds a **credit default prediction model** on the well-known **UCI “Default of Credit Card Clients” dataset**.
-It demonstrates a full **end-to-end scoring workflow** — from **EDA and preprocessing**, through **model training and tuning**, to **explainability using SHAP**.
-
-The focus is on **risk modeling**, where both **predictive performance** and **interpretability** are essential for use in **banking**, **consumer credit**, and **regulatory reporting**.
+This project builds a credit default scoring model using the well-known Default of Credit Card Clients dataset from UCI.
+It demonstrates the complete lifecycle of a risk analytics pipeline:
 
 ## 🧩 Objectives
 - Predict whether a credit card client will **default next month**.
