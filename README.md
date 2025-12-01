@@ -218,30 +218,73 @@ This is the kind of textual explanation that can later be surfaced in a credit d
 
 ## 🧮 Repository Structure
 ```plaintext
-credit_scoring_model/
+Credit_Scoring/
 ├── data/
 │   ├── default_of_credit_card_clients.csv
-│   └── df_preprocessed.csv
+│   └── interim/
+│       └── df_preprocessed.csv
 ├── images/
 │   ├── confusion_matrix.png
-│   ├── roc_curve.png
-│   ├── pr_curve.png
+│   ├── calibration_curve.png
 │   ├── shap_summary_bar.png
 │   ├── shap_summary_beeswarm.png
+│   ├── pdp_top_raw_features.png
 │   ├── shap_dependence_*.png
 │   └── local/
-│       ├── shap_local_TN.png
-│       ├── shap_local_FP.png
-│       ├── shap_local_FN.png
-│       └── shap_local_TP.png
+│       └── shap_local_*.png
 ├── models/
 │   └── artifacts/
 │       ├── credit_model.joblib
-│       └── metadata.json
+│       ├── metadata.json
+│       └── feature_importance_shap.csv
 ├── notebooks/
-│   ├── 01_eda_preprocessing.ipynb
-│   ├── 02_modeling.ipynb
-│   └── 03_explainability.ipynb
+│   ├── eda_preprocessing.ipynb
+│   ├── modeling.ipynb
+│   └── explainability.ipynb
 ├── requirements.txt
+├── .gitignore
 └── README.md
 ```
+
+## ⚙️ Setup & Reproducibility
+### 1️⃣ Clone repository
+```bash
+git clone https://github.com/aituar17/Credit_Scoring.git
+cd Credit_Scoring
+```
+### 2️⃣ Create environment
+```bash
+python -m venv .venv
+# Windows
+.venv\Scripts\activate
+# macOS / Linux
+# source .venv/bin/activate
+
+pip install -r requirements.txt
+```
+### 3️⃣ Run notebooks (in order)
+```bash
+notebooks/01_eda_preprocessing.ipynb
+notebooks/02_modeling.ipynb
+notebooks/03_explainability.ipynb
+```
+
+## 💬 Insights & Business Impact
+- **Recent repayment behavior drives risk:**
+  Severe delays in the **most recent months** (`pay_1`, `pay_2`, `pay_3`) are the strongest predictors of default.
+- **Credit limit matters:**
+  Higher `limit_bal` (and `log_limit_bal`) is generally associated with **lower default probabilities**, potentially capturing both income/wealth and lending policies.
+- **Payment and bill amounts are secondary but important:**
+  Recent paid amounts and bill statements refine the risk signal, especially when combined with repayment status.
+- **Explainability enables governance:**
+  SHAP + permutation importance + partial dependence plots provide a **transparent story**:
+  - What drives PDs globally
+  - Why this particular customer is classified as risky (local waterfalls + textual explanations)
+    This is exactly the type of evidence **model validation** and **regulators** tend to request.
+
+## 📈 Next Steps
+- Add **probability calibration** (e.g., Platt scaling / isotonic regression) on top of Random Forest.
+- Implement **scorecards** or monotonic models (e.g., Logistic Regression with WOE binning) for even higher interpretability.
+- Operationalize the model as a **REST API** (FastAPI / Flask) for real-time scoring.
+- Monitor **PSI** and performance over time to detect population drift and trigger retraining.
+- Extend the framework to other credit products (e.g., installment loans, SME loans) or to **behavioral scoring**.
