@@ -99,9 +99,15 @@ This indicates a **non-trivial shift** between training and test score distribut
 
 🎯 **Chosen “Production” Model**
 - **Chosen model: Random Forest** (slightly better PR-AUC + better Brier score; aligns with use of calibrated PDs in credit risk).
-- Saved artifacts:
-  - `models/artifacts/credit_model.joblib`
-  - `models/artifacts/metadata.json` (stores feature lists, chosen threshold, metrics, etc.).
+
+📦 **Saved Artifacts**
+To keep the repository lightweight, large binary model files are **not stored in GitHub**.  
+They are automatically **excluded via `.gitignore`** since the model can be reproduced by running the notebooks.
+
+The following artifacts are generated locally when running the modeling notebook:
+- `models/artifacts/credit_model.joblib`  *(ignored in GitHub)*
+- `models/artifacts/metadata.json`
+- `models/artifacts/feature_importance_shap.csv`
 
 ### 3️⃣ Model Explainability
 📄 `notebooks/03_explainability.ipynb`
@@ -234,9 +240,9 @@ Credit_Scoring/
 │       └── shap_local_*.png
 ├── models/
 │   └── artifacts/
-│       ├── credit_model.joblib
 │       ├── metadata.json
-│       └── feature_importance_shap.csv
+│       ├── feature_importance_shap.csv
+│       └── credit_model.joblib  *# (not tracked — generated locally)*
 ├── notebooks/
 │   ├── eda_preprocessing.ipynb
 │   ├── modeling.ipynb
@@ -268,6 +274,15 @@ notebooks/01_eda_preprocessing.ipynb
 notebooks/02_modeling.ipynb
 notebooks/03_explainability.ipynb
 ```
+
+⚠️ **Note:**  
+The trained model file (`credit_model.joblib`) is not included in the repository because it exceeds GitHub’s file-size limit and is excluded via `.gitignore`.
+
+To reproduce it, simply run:
+`notebooks/02_modeling.ipynb`
+
+This will regenerate the model and store it under:
+`models/artifacts/credit_model.joblib`
 
 ## 💬 Insights & Business Impact
 - **Recent repayment behavior drives risk:**
