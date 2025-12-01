@@ -1,0 +1,51 @@
+{
+  "model_name": "RandomForest",
+  "num_cols": [
+    "limit_bal",
+    "age",
+    "bill_amt1",
+    "bill_amt2",
+    "bill_amt3",
+    "bill_amt4",
+    "bill_amt5",
+    "bill_amt6",
+    "pay_amt1",
+    "pay_amt2",
+    "pay_amt3",
+    "pay_amt4",
+    "pay_amt5",
+    "pay_amt6",
+    "log_limit_bal",
+    "log_bill_amt1",
+    "log_bill_amt2",
+    "log_bill_amt3",
+    "log_bill_amt4",
+    "log_bill_amt5",
+    "log_bill_amt6",
+    "log_pay_amt1",
+    "log_pay_amt2",
+    "log_pay_amt3",
+    "log_pay_amt4",
+    "log_pay_amt5",
+    "log_pay_amt6"
+  ],
+  "cat_cols": [
+    "gender",
+    "education",
+    "marriage",
+    "pay_1",
+    "pay_2",
+    "pay_3",
+    "pay_4",
+    "pay_5",
+    "pay_6"
+  ],
+  "threshold": 0.36,
+  "metrics": {
+    "roc_auc": 0.7665369417637695,
+    "pr_auc": 0.5452317382482841,
+    "ks": 0.4172180902298974,
+    "brier": 0.14050912389271308,
+    "psi_train_test": 0.4611589528719794
+  }
+}
