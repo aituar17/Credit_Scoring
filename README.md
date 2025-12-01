@@ -1,126 +1,220 @@
-# 💳 Credit Risk Scoring Model (Default Prediction)
+# 💳 Credit Card Default Prediction (Credit Scoring)
 
 ## 📘 Overview
-This project builds a **credit default scoring model** using the well-known **Default of Credit Card Clients** dataset from UCI.
-It demonstrates the complete lifecycle of a risk analytics pipeline:
-- **Data cleaning & preprocessing**
-- **Imbalanced classification modeling**
-- **Threshold-tuned evaluation (credit risk perspective)**
-- **Global & local explainability using SHAP**
-- **Risk-aligned insight extraction**
-The goal is to predict whether a client will **default on their next payment**, while ensuring the model remains **transparent, interpretable, and regulator-friendly**.
+This project builds a **credit default prediction model** using the classic **“Default of Credit Card Clients”** dataset from UCI. It walks through an end-to-end **credit scoring workflow** — from **EDA and preprocessing**, through **modeling and risk metrics (ROC, PR, KS, PSI, Brier)**, to **explainability with SHAP and partial dependence plots**.
+
+The focus is on mimicking a realistic **credit risk** pipeline:
+- Good **discriminative power** (ROC / PR / KS)
+- Reasonable **probability calibration** (Brier, calibration curve)
+- **Interpretable drivers of default** for model risk management and regulators.
 
 ## 🧩 Objectives
-- Predict **next-month payment default** for credit card clients.
-- Explore demographic + financial behavior data (limits, bill statements, repayment history).
-- Handle strong **class imbalance** using:
-  - `class_weight = "balanced"`
-  - Precision-Recall analysis
-- Compare **interpretable** (Logistic Regression) and **non-linear** (Tree-based) models.
-- Provide **SHAP-based explainability**:
-  - Global feature drivers
-  - Feature interactions
-  - Local risk explanations (TP / FP / FN / TN)
+- Predict whether a credit card client will **default next month**.
+- Handle **class imbalance** using `class_weight = "balanced"`.
+- Compare:
+  - **Logistic Regression** (interpretable baseline)
+  - **Random Forest** (non-linear baseline)
+- Evaluate with credit-scoring–friendly metrics:
+  - **ROC-AUC, PR-AUC, KS, Brier score, PSI**
+- Explain model behavior with:
+  - **Permutation importance**
+  - **Global SHAP (summary & dependence)**
+  - **Local SHAP for TP / FP / FN / TN customers**
 
 ## 📊 Dataset
 - **Source:** [Default of Credit Card Clients — UCI Machine Learning Repository](https://archive.ics.uci.edu/dataset/350/default+of+credit+card+clients)
-- **Size:** 30,000 observations
-- **Target:** `default.payment.next.month` (0 = no default, 1 = default)
-- **Features:** 23 variables including:
-  - **Demographics:** `SEX`, `EDUCATION`, `MARRIAGE`, `AGE`
-  - **Financial capacity:** `LIMIT_BAL`
-  - **Payment history (6 months):** `PAY_0`, `PAY_2`, … `PAY_6`
-  - **Bill statements (6 months):** `BILL_AMT1`–`BILL_AMT6`
-  - **Previous payments (6 months):** `PAY_AMT1`–`PAY_AMT6`
+- **Raw file:** `data/default_of_credit_card_clients.csv`
+- **Size:** 30,000 clients, 25 columns (ID + 23 features + target)
+- **Target:** `default` (binary; 1 = default payment next month, 0 = no default)
+- **Overall default rate: 22.12%**
 
-### Key Characteristics
-- Highly **imbalanced** target (approx. 22% default).
-- Strongly skewed financial values.
-- Payment delay variables (`PAY_X`) are the dominant signal.
+### Main Feature Groups
+- **Demographics / Contract**
+  - `LIMIT_BAL` – credit limit
+  - `SEX` (renamed → `gender`), `EDUCATION`, `MARRIAGE`, `AGE`
+- **Repayment status (months t-1 … t-6)**
+  - `PAY_0`–`PAY_6` (renamed: `PAY_0` → `pay_1` for September, then `pay_2`–`pay_6`)
+  - Encodes repayment delay: **−2, −1, 0, 1, 2, …** (from pay in full → increasing delay)
+- **Bill statements (`BILL_AMT1`–`BILL_AMT6`)**
+- **Past payments (`PAY_AMT1`–`PAY_AMT6`)**
 
 ## 🧠 Project Workflow
 ### 1️⃣ Exploratory Data Analysis & Preprocessing
 📄 `notebooks/01_eda_preprocessing.ipynb`
 
-Key steps:
-- Inspected distributions of financial variables.
-- Treated zero-inflation & skewness (logs where needed).
-- Checked correlations among repayment, bill, and payment variables.
-- Engineered:
-  - **Debt ratio features**
-  - **Payment behavior indicators**
-- Split into train/test (stratified).
-- Prepared preprocessing pipeline:
-  - Standard scaling
-  - No one-hot encoding needed (most features numeric)
- 
-Saved cleaned dataset → `data/df_cleaned.csv`
+Main steps:
+- Loaded the raw dataset and confirmed **no missing values** in any column.
+- Renamed columns for readability:
+  - `default payment next month` → `default`
+  - `PAY_0` → `pay_1` (September status)
+  - `SEX` → `gender`
+- Cleaned categorical codes:
+  - `education`: merged values {0, 5, 6} → `"Other"`
+  - `marriage`: recoded 0 → `"Other"` and mapped all to human-readable labels.
+- Casted payment status variables (`pay_1`–`pay_6`) and demographics (`gender`, `education`, `marriage`) as categoricals.
+- Created **log-transformed features** for skewed monetary variables (clip at 0 + `log1p`):
+  - `log_limit_bal`, `log_bill_amt1`–`log_bill_amt6`, `log_pay_amt1`–`log_pay_amt6`.
+- Split into **features** and **target**, dropped `id`, and performed a **stratified** 80/20 split:
+  - Train: (24,000 × 36), Test: (6,000 × 36), same default rate ≈ 22.1%.
+- Saved cleaned dataset → `data/interim/df_preprocessed.csv`.
 
 ### 2️⃣ Modeling
 📄 `notebooks/02_modeling.ipynb`
 
-Approach:
-- Built unified `sklearn` pipeline:
-  - `ColumnTransformer` → **Scaler**
-  - Classifier (`LogisticRegression` or `RandomForestClassifier`)
-- Performed grid search on:
-  - Regularization (LogReg)
-  - Number of trees (RF)
-  - Class weighting
+**Train / Test Split**
+- `X`: all features except `default` and `id`
+- `y`: `default`
+- Stratified split 80% / 20%. Train default rate: 0.221, test: 0.221.
 
-#### 🔍 Performance Metrics (threshold-free)
-| **Model** | **ROC-AUC**| **PR-AUC** | **Notes** |
-| ------------- | ------------- | ------------- | ------------- |
-| **Logistic Regression** | **0.771**| 0.532 | Transparent baseline |
-| **Random Forest** | **0.767**| 0.545 | Captures non-linear relations. Slightly higher PR-AUC |
+**Preprocessing Pipeline**
+Used `ColumnTransformer` to build a **single sklearn pipeline** for both models:
+- **Numeric** (`num_cols`)
+  - Standardized with `StandardScaler`.
+- **Categorical** (`cat_cols`)
+  - One-Hot Encoding (`OneHotEncoder(handle_unknown = "ignore", sparse_output = False)`).
+- Remainder columns are dropped.
 
-#### 📌 Threshold Analysis (credit-risk oriented)
-Optimized threshold based on:
-- Maximizing **Recall** (avoid missing defaulters)
-- Balanced **Recall–Precision** tradeoff
-- Minimized financial loss (banking perspective)
+**Models Compared**
+- **Logistic Regression (baseline, interpretable)**
+  - `LogisticRegression(max_iter = 1000, class_weight = "balanced", random_state = 42)`
+  - Wrapped inside the preprocessing pipeline.
+- **Random Forest (non-linear baseline)**
+  - `RandomForestClassifier(n_estimators = 400, max_depth = None, min_samples_leaf = 2, class_weight = "balanced", n_jobs = -1, random_state = 42)`
+  - Also wrapped in the same `pre` pipeline.
 
-Saved artifacts:
-- `models/artifacts/credit_model.joblib`
-- `models/artifacts/metadata.json`
+#### 🔍 Results Summary (Threshold = 0.50)
+| **Model** | **ROC-AUC**| **PR-AUC** | **F1 (default = 1)** | **KS** | **Brier** |
+| ------------- | ------------- | ------------- | ------------- | ------------- | ------------- |
+| Logistic Regression | **0.771** | 0.532 | 0.524 | **0.419** | 0.184 |
+| Random Forest | 0.767 | **0.545** | 0.501 | 0.417 | **0.141** |
 
-### 3️⃣ Explainability
+Notes:
+- **Logistic Regression** has slightly higher **ROC-AUC** and **KS**.
+- **Random Forest** has better **PR-AUC** and noticeably lower **Brier score** (better calibration of probabilities).
+
+🧪 **Stability – PSI**
+To get a flavour of **population stability**, the RF scores on train and test were compared via **PSI**:
+- **PSI (RF train → test): 0.461**
+This indicates a **non-trivial shift** between training and test score distributions — in a real credit risk setting this would trigger further investigation or recalibration.
+
+🎯 **Chosen “Production” Model**
+- **Chosen model: Random Forest** (slightly better PR-AUC + better Brier score; aligns with use of calibrated PDs in credit risk).
+- Saved artifacts:
+  - `models/artifacts/credit_model.joblib`
+  - `models/artifacts/metadata.json` (stores feature lists, chosen threshold, metrics, etc.).
+
+### 3️⃣ Model Explainability
 📄 `notebooks/03_explainability.ipynb`
 
-Explainability is crucial in credit scoring for compliance with **regulation, fairness, and model risk management**.
+This notebook focuses on understanding **how** the Random Forest makes decisions.
 
-✔ **Global SHAP**
-- SHAP summary (bar)
-- Beeswarm
-- Top feature contributions
-- Dependence plots for most influential variables (`PAY_0`, `PAY_2`, `BILL_AMT1`, etc.)
+**Performance at Operating Threshold (t = 0.36)**
+Using the saved threshold from modeling:
+- **Threshold:** 0.36
+- **Precision (default = 1):** 0.514
+- **Recall (default = 1):** 0.564
+- **F1 (default = 1):** 0.538
+- **ROC-AUC:** 0.767
+- **PR-AUC:** 0.545
+- **Brier score:** 0.141
 
-✔ **Local SHAP**
-Produced waterfall plots for:
-- **TP** (correctly identified defaulter)
-- **FP** (wrongly flagged as default → fairness concern)
-- **FN** (missed defaulter → financial risk)
-- **TN** (correct non-defaulter)
-These help auditors, risk managers, and regulators understand **WHY** the model made a particular prediction.
+**Confusion matrix (test set, t = 0.36):**
+```lua
+[[3965, 708],
+  [ 579, 748]]
+```
+This tuning improves the F1 of the default class compared to the plain 0.5 threshold, at the cost of some extra false positives — a common trade-off in credit scoring.
 
-## 📈 Key Findings
-### 🔍 Top Drivers of Default
-*(Based on SHAP mean absolute values computed on the test set)*
-| **Rank** | **Feature**| **Effect on Default Risk** |
-| ------------- | ------------- | ------------- |
-| 1 | `PAY_1 = 2` | Recent 2-month delay → **strongly increases** risk |
-| 2 | `PAY_1 = 0` | On-time behavior → **reduces** risk |
-| 3 | `PAY_2 = 2` | Past delays (August) → **increases** risk |
-| 4 | `LIMIT_BAL` & `log_limit_bal` | Higher credit limit → **reduces** risk |
-| 5 | `PAY_3 = 2`, `PAY_4 = 2`, `PAY_5 = 2` | Consistent historical delays → **increases** risk |
-| 6 | `PAY_AMT1` (and logs) | Larger recent repayments → **reduces** risk |
-| 7 | `BILL_AMT1`, `BILL_AMT2` | Higher outstanding bills → **increases** risk |
+#### 🔑 Global Feature Importance
+**1. Permutation Importance (AUC Loss)**
 
-**Interpretation:**
-Default is driven primarily by **recent payment delay**, **historical delinquency**, and indicators of **financial stress** (high bills + low repayments).
-Credit limits and repayment amounts provide strong stabilizing signals.
+Top features by permutation importance (Random Forest, test set):
+1. `pay_1_2` – September status = 2 (two-month delay)
+2. `pay_1_0` – September status = 0 (on-time repayment)
+3. `pay_2_2` – August status = 2
+4. `log_limit_bal`
+5. `pay_3_2` – July status = 2
+6. `log_pay_amt1`, `pay_amt1` (most recent payment size)
+7. `pay_4_2`, `pay_5_2` (earlier months with delay)
+8. `log_pay_amt2`, `log_pay_amt3`, `pay_amt2`, `pay_amt3`
+9. `log_bill_amt1`, `bill_amt1`, `bill_amt2`
+
+→ The model is heavily driven by **recent repayment behavior**, **credit limit**, and **recent payment/bill amounts** — exactly what we’d expect in a credit scoring setting.
+
+**2. SHAP Global Importance (Mean |SHAP|)**
+Using SHAP (TreeExplainer on the Random Forest, 500-row test subsample), we computed mean absolute SHAP values and saved them as:
+- `models/artifacts/feature_importance_shap.csv`
+
+Top 5 global drivers:
+1. `pay_1_2`
+2. `pay_1_0`
+3. `pay_2_2`
+4. `limit_bal`
+5. `log_limit_bal`
+
+SHAP confirms what permutation importance suggests:
+- Being **two months late** in the most recent period (`pay_1_2`) massively pushes the probability of default up.
+- Larger **credit limits** and their log transform tend to **lower** predicted default risk (ceteris paribus).
+
+#### 📊 Partial Dependence (PDP)
+To inspect marginal effects in the **original scale**, Partial Dependence Plots were computed for:
+- `limit_bal`
+- `age`
+- `bill_amt1`
+Saved as:
+- images/pdp_top_raw_features.png
+These plots show, for example, how **higher credit limits** and **higher first bill amounts** relate to changes in average predicted default probability.
+
+#### 🐝 SHAP Visualizations
+Global SHAP plots (Random Forest + preprocessed features):
+- **Global Feature Importance (bar):**
+  - `images/shap_summary_bar.png`
+- **Beeswarm (direction + magnitude):**
+  - `images/shap_summary_beeswarm.png`
+
+Dependence plots for the top SHAP features (saved as separate files):
+- `images/shap_dependence_pay_1_2.png`
+- `images/shap_dependence_pay_1_0.png`
+- `images/shap_dependence_pay_2_2.png`
+- `images/shap_dependence_limit_bal.png`
+- `images/shap_dependence_log_limit_bal.png`
+
+#### 👤 Local Explanations (TP / FP / FN / TN)
+To make explanations relatable, the notebook:
+1. Builds a small dataframe with `y`, `proba`, `pred` at `t = 0.36`.
+2. Samples one example for each quadrant:
+  - **TN** (correct non-default)
+  - **FP** (false alarm)
+  - **FN** (missed default)
+  - **TP** (correct default)
+3. Computes SHAP only for these selected customers and plots **waterfall explanations**.
+
+Saved local plots:
+- `images/local/shap_local_TN.png`
+- `images/local/shap_local_FP.png`
+- `images/local/shap_local_FN.png`
+- `images/local/shap_local_TP.png`
+
+Additionally, there is a helper function to extract **top positive and negative SHAP drivers** in tabular form for any of these customers:
+- `explain_local_instance(global_row_idx, top_n = 5)`
+
+This is the kind of textual explanation that can later be surfaced in a credit decisioning UI.
 
 ## 🧩 Visualizations
+### Model Evaluation
+| **Metric** | **Plot**|
+| ------------- | ------------- | 
+| Confusion Matrix | ![confusion_matrix](images/confusion_matrix.png) |
+| Calibration Curve | ![calibration_curve](images/calibration_curve.png) |
+
+### Explainability
+| **Type** | **Plot**|
+| ------------- | ------------- | 
+| Global — SHAP Bar Importance | ![shap_summary_bar](images/shap_summary_bar.png) |
+| Global — SHAP Beeswarm | ![shap_summary_beeswarm](images/shap_summary_beeswarm.png) |
+| PDP — Key Raw Features | ![pdp_top_raw_features](images/pdp_top_raw_features.png) |
+| SHAP Dependence (top features) | ![shap_dependence_pay_1_0](images/shap_dependence_pay_1_0.png) ![shap_dependence_pay_1_2](images/shap_dependence_pay_1_2.png) ![shap_dependence_pay_2_2](images/shap_dependence_pay_2_2.png) |
+| Local SHAP — TN / FP / FN / TP | ![shap_local_TN](images/local/shap_local_TN.png) ![shap_local_FP](images/local/shap_local_FP.png) ![shap_local_FN](images/local/shap_local_FN.png) ![shap_local_TP](images/local/shap_local_TP.png) |
 
 ## 🧮 Repository Structure
 ```plaintext
